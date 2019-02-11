@@ -1,10 +1,11 @@
 import datetime as dtm
+from operator import itemgetter
+from random import shuffle
 
 import matplotlib.dates as plt_dates
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from iexfinance.stocks import get_historical_data
 from mpl_finance import candlestick_ohlc
 
 sns.set()
@@ -50,7 +51,7 @@ def moving_average(data, window_size=14):
     return result
 
 
-def onbalance_volume(data):
+def onbalance_volume(data, normalize=True):
     result = []
     entries = list(data.items())
     if entries[1][1]['close'] > entries[0][1]['close']:
@@ -69,20 +70,38 @@ def onbalance_volume(data):
         else:
             obv += 0
         result.append((entries[i][0], obv))
+    if normalize:
+        obv_max = max(result, key=itemgetter(1))[1]
+        # obv_max = 9
+        first_number = 9
+        # obv_sum = abs(sum(map(itemgetter(1), result)))
+        result = list(map(lambda x: (x[0], 10 * x[1] / obv_max), result))
     return result
 
 
-if __name__ == '__main__':
-    start = dtm.datetime(2018, 1, 1)
-    end = dtm.datetime(2019, 1, 1)
+def merge(data, *indicators):
+    x = []
+    y = []
+    items = list(data.items())
+    for i, key_value in enumerate(items):
+        key, value = key_value
+        if len(items) - 1 == i or \
+                any(map(lambda indic: key not in indic, indicators)):
+            continue
 
-    data = get_historical_data('AAPL', start, end)
+        entry = list(map(itemgetter(key), indicators))
+        entry.append(items[i][1]['open'] - items[i + 1][1]['open'])
+        # entry.append(items[i][1]['high'] - items[i][1]['low'])
+        # entry = [moving_averages_7[key], moving_averages_14[key], obv[key], rsis[key], items[i + 1][1]['open']]
+        x.append(entry)
+        y.append(int(items[i + 1][1]['close'] > items[i + 1][1]['open']))
+    zipped_xy = list(zip(x, y))
+    # shuffle(zipped_xy)
+    x, y = zip(*zipped_xy)
+    return np.array(x), np.array(y)
 
-    obv = onbalance_volume(data)
-    moving_averages_14 = moving_average(data, window_size=14)
-    moving_averages_7 = moving_average(data, window_size=7)
-    rsis = relative_strength_index(data)
 
+def build_plots(data, obv, moving_averages_7, moving_averages_14):
     i = 0
     ohlc = []
     averages14_chart_x = []
