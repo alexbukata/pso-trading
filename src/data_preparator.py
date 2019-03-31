@@ -2,6 +2,8 @@ import datetime as dtm
 
 from iexfinance.stocks import get_historical_data
 
+from src.alphavantage_endpoint import get_market_data_daily
+from src.capm import calc_capm
 from src.indicators import onbalance_volume, moving_average, relative_strength_index, merge
 
 
@@ -9,8 +11,10 @@ def prepare_data(share, start, end):
     start = start - dtm.timedelta(days=14)
 
     data = get_historical_data(share, start, end)
-    market_data = get_historical_data('SPY', start, end)
+    # market_data = get_historical_data('SPY', start, end)
+    market_data = get_market_data_daily()
 
+    alpha, beta = calc_capm(data, market_data)
     obv = onbalance_volume(data)
     moving_averages_21 = moving_average(data, window_size=21)
     moving_averages_14 = moving_average(data, window_size=14)
