@@ -1,32 +1,48 @@
 import datetime as dtm
 import logging as log
+import time
 
 import pandas as pd
 import requests
 
 _intrinio_key_sand = 'OjYxNzRmMDQyZDM1NTVkOGEzMDAwYjA4MTI1YWY0ZThj'
 _intrinio_key_prod = 'OjM1MTMyNDljOTI4ODY4N2YxMGMzMmQ2OThiNGI5YzZj'
+_current_key = _intrinio_key_sand
 
 
 def get_stocks_data(stock_names, datefrom, dateto):
     result = pd.DataFrame()
-    for stock_name in stock_names:
-        log.info("[{}] request stock prices".format(stock_name))
-        current_stock_data = _request_stock_prices_as_pd(stock_name, datefrom, dateto)
-        log.info("[{}] request stock technicals".format(stock_name))
-        current_stock_technicals = _request_stock_technicals_as_pd(stock_name, datefrom, dateto)
-        current_stock_data = pd.merge(current_stock_data, current_stock_technicals, on='date')
-        log.info("[{}] request market prices".format(stock_name))
-        current_market_price = _request_market_prices_as_pd(stock_name, datefrom, dateto)
-        current_stock_data = pd.merge(current_stock_data, current_market_price, on='date')
-        log.info("[{}] request stock fundamentals".format(stock_name))
-        current_stock_fundamentals = _request_stock_fundamentals_as_pd(stock_name, datefrom, dateto)
-        current_stock_data = pd.merge(current_stock_data, current_stock_fundamentals, on='stock_name')
-        current_stock_data = current_stock_data.query('(date >= start_date and date <= end_date)')
-        current_stock_data = current_stock_data.drop(['start_date', 'end_date', 'fiscal_year', 'fiscal_period'],
-                                                     axis=1).reset_index(drop=True)
-        result = pd.concat(result, current_stock_data)
+    stock_candidate_names = list(stock_names)
+    while len(stock_candidate_names) > 0:
+        stock_name = stock_candidate_names.pop()
+        try:
+            current_stocks = _get_stock_data(stock_name, datefrom, dateto)
+            result = pd.concat([result, current_stocks])
+        except Exception as e:
+            print("retry on {}".format(stock_name))
+            print(e)
+            stock_candidate_names.append(stock_name)
+        time.sleep(3)
+
     return result
+
+
+def _get_stock_data(stock_name, datefrom, dateto):
+    print(stock_name)
+    log.info("[{}] request stock prices".format(stock_name))
+    stock_data = _request_stock_prices_as_pd(stock_name, datefrom, dateto)
+    log.info("[{}] request stock technicals".format(stock_name))
+    current_stock_technicals = _request_stock_technicals_as_pd(stock_name, datefrom, dateto)
+    stock_data = pd.merge(stock_data, current_stock_technicals, on='date')
+    log.info("[{}] request market prices".format(stock_name))
+    current_market_price = _request_market_prices_as_pd(stock_name, datefrom, dateto)
+    stock_data = pd.merge(stock_data, current_market_price, on='date')
+    log.info("[{}] request stock fundamentals".format(stock_name))
+    current_stock_fundamentals = _request_stock_fundamentals_as_pd(stock_name, datefrom, dateto)
+    stock_data = pd.merge(stock_data, current_stock_fundamentals, on='stock_name')
+    stock_data = stock_data.query('(date >= start_date and date <= end_date)')
+    stock_data = stock_data.drop(['start_date', 'end_date', 'fiscal_year', 'fiscal_period'], axis=1).reset_index(drop=True)
+    return stock_data
 
 
 # ======================================================================================================================
@@ -43,9 +59,9 @@ def _request_stock_prices_as_pd(stock_name, datefrom, dateto):
     return stock_daily
 
 
-def _request_stock_prices(stock_name, datefrom, dateto, page=None):
+def _request_stock_prices(stock_name, datefrom, dateto, page=None, verbose=False):
     params = {
-        "api_key": _intrinio_key_sand,
+        "api_key": _current_key,
         "start_date": datefrom.strftime("%Y-%m-%d"),
         "end_date": dateto.strftime("%Y-%m-%d"),
         "page": 100
@@ -54,7 +70,7 @@ def _request_stock_prices(stock_name, datefrom, dateto, page=None):
         params["next_page"] = page
     response = requests.request("get", "https://api-v2.intrinio.com/securities/{}/prices".format(stock_name),
                                 params=params)
-    if not response.ok:
+    if verbose and not response.ok:
         print("https://api-v2.intrinio.com/securities/{}/prices".format(stock_name))
         print(response.status_code)
         print(response.content)
@@ -74,15 +90,15 @@ def _request_stock_prices(stock_name, datefrom, dateto, page=None):
 #                                                       STOCK TECHNICALS
 # ======================================================================================================================
 def _request_stock_technicals_as_pd(stock_name, datefrom, dateto):
-    technicals = [  # ('sma', {'period': 7}), ('sma', {'period': 14}), ('sma', {'period': 28}),
-        # ('rsi', {'period': 7}), ('rsi', {'period': 14}), ('rsi', {'period': 28}),
-        # ('obv', {}),
-        # ('adi', {}),
-        #  ('adx', {'short_period': 3, 'long_period': 7}), #('adx', {'short_period': 7, 'long_period': 14}),
-        #     ('adx', {'short_period': 7, 'long_period': 28}),
-        ('bb', {}),
-        ('kc', {'period': 7}), ('kc', {'period': 14}),
-        ('kc', {'period': 28}), ]
+    technicals = [('sma', {'period': 7}), ('sma', {'period': 14}), ('sma', {'period': 28}),
+                  ('rsi', {'period': 7}), ('rsi', {'period': 14}), ('rsi', {'period': 28}),
+                  ('obv', {}),
+                  ('adi', {}),
+                  ('adx', {'short_period': 3, 'long_period': 7}), ('adx', {'short_period': 7, 'long_period': 14}),
+                  ('adx', {'short_period': 7, 'long_period': 28}),
+                  ('bb', {}),
+                  ('kc', {'period': 7}), ('kc', {'period': 14}),
+                  ('kc', {'period': 28}), ]
     technicals_df = None
     for technical_name, kwargs in technicals:
         log.info((technical_name, kwargs))
@@ -94,20 +110,19 @@ def _request_stock_technicals_as_pd(stock_name, datefrom, dateto):
         if len(column_names) > 2:
             column_names = ['-'.join([technical_name] + list(str(x) for x in kwargs.values()) + [column_name]) for column_name in column_names if column_name != 'date']
         else:
-            column_names = '-'.join([technical_name] + list(str(x) for x in kwargs.values()) + [technical_name])
-        current_tech.columns = ['date'] + column_names
-        print(current_tech.head())
+            column_names = ['-'.join([technical_name] + list(str(x) for x in kwargs.values()))]
+        current_tech.columns = column_names + ['date']
+        current_tech = current_tech[['date'] + column_names]
         if technicals_df is None:
             technicals_df = current_tech
         else:
             technicals_df = pd.merge(technicals_df, current_tech, on='date')
-    technicals_df = technicals_df.assign(stock_name=stock_name)
     return technicals_df
 
 
-def _request_stock_technicals(stock_name, technical_name, datefrom, dateto, page=None, **kwargs):
+def _request_stock_technicals(stock_name, technical_name, datefrom, dateto, page=None, verbose=False, **kwargs):
     params = {
-        "api_key": _intrinio_key_sand,
+        "api_key": _current_key,
         "start_date": datefrom.strftime("%Y-%m-%d"),
         "end_date": dateto.strftime("%Y-%m-%d"),
         "price_key": "open",
@@ -120,7 +135,7 @@ def _request_stock_technicals(stock_name, technical_name, datefrom, dateto, page
                                 "https://api-v2.intrinio.com/securities/{}/prices/technicals/{}".format(stock_name,
                                                                                                         technical_name),
                                 params=params)
-    if not response.ok:
+    if verbose and not response.ok:
         print("https://api-v2.intrinio.com/securities/{}/prices/technicals/{}".format(stock_name, technical_name))
         print(response.status_code)
         print(response.content)
@@ -147,14 +162,13 @@ def _request_market_prices_as_pd(stock_name, datefrom, dateto):
     market_daily = pd.DataFrame(data=market_daily, columns=['date', 'close'])
     market_daily = market_daily.sort_values('date').reset_index(drop=True)
     market_daily['close'] = market_daily['close'].shift(1)
-    market_daily.columns = ['date', 'close_prev1']
-    market_daily = market_daily.assign(stock_name=stock_name)
+    market_daily.columns = ['date', 'market_close_prev1']
     return market_daily
 
 
-def _request_market_prices(stock_name, datefrom, dateto, page=None):
+def _request_market_prices(stock_name, datefrom, dateto, page=None, verbose=False):
     params = {
-        "api_key": _intrinio_key_sand,
+        "api_key": _current_key,
         "start_date": datefrom.strftime("%Y-%m-%d"),
         "end_date": dateto.strftime("%Y-%m-%d"),
         "page": 100
@@ -164,7 +178,7 @@ def _request_market_prices(stock_name, datefrom, dateto, page=None):
     response = requests.request("get",
                                 "https://api-v2.intrinio.com/indices/stock_market/{}/historical_data/close_price"
                                 .format(stock_name), params=params)
-    if not response.ok:
+    if verbose and not response.ok:
         print("https://api-v2.intrinio.com/indices/stock_market/{}/historical_data/close_price".format(stock_name))
         print(response.status_code)
         print(response.content)
@@ -210,9 +224,9 @@ def _request_stock_fundamentals_report_as_pd(stock_name, fiscal_years, periods):
     return calculations_reports
 
 
-def _request_stock_fundamentals_report(stock_name, year, page=None):
+def _request_stock_fundamentals_report(stock_name, year, page=None, verbose=False):
     params = {
-        "api_key": _intrinio_key_sand,
+        "api_key": _current_key,
         "fiscal_year": year,
         "page": 100
     }
@@ -220,7 +234,7 @@ def _request_stock_fundamentals_report(stock_name, year, page=None):
         params["next_page"] = page
     response = requests.request("get", "https://api-v2.intrinio.com/companies/{}/fundamentals".format(stock_name),
                                 params=params)
-    if not response.ok:
+    if verbose and not response.ok:
         print("https://api-v2.intrinio.com/companies/{}/fundamentals".format(stock_name))
         print(response.status_code)
         print(response.content)
@@ -259,9 +273,9 @@ def _request_stock_financial_fundamentals_as_pd(stock_name, fiscal_years, period
     return fundamentals
 
 
-def _request_stock_financial_fundamentals(stock_name, fundamental, year, quarter, page=None):
+def _request_stock_financial_fundamentals(stock_name, fundamental, year, quarter, page=None, verbose=False):
     params = {
-        "api_key": _intrinio_key_sand,
+        "api_key": _current_key,
         "fiscal_year": year,
         "page": 100
     }
@@ -270,7 +284,7 @@ def _request_stock_financial_fundamentals(stock_name, fundamental, year, quarter
     request_id = stock_name + '-' + fundamental + '-' + str(year) + '-' + quarter
     response = requests.request("get", "https://api-v2.intrinio.com/fundamentals/{}/standardized_financials"
                                 .format(request_id), params=params)
-    if not response.ok:
+    if verbose and not response.ok:
         print("https://api-v2.intrinio.com/fundamentals/{}/standardized_financials".format(request_id))
         print(response.status_code)
         print(response.content)
@@ -289,4 +303,4 @@ def _request_stock_financial_fundamentals(stock_name, fundamental, year, quarter
 
 if __name__ == '__main__':
     log.basicConfig(format='%(asctime)s - %(message)s', level=log.INFO)
-    print(get_stocks_data(['AAPL'], dtm.datetime(2010, 1, 1), dtm.datetime(2019, 1, 1)))
+    print(get_stocks_data(['AAPL', 'CSCO'], dtm.datetime(2017, 1, 1), dtm.datetime(2019, 1, 1)))
