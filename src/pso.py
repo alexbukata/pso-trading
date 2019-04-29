@@ -1,15 +1,14 @@
 import random
 
 
-def optimize(params, fitness, n_particles=5):
-    swarm = _initialize(params, fitness, n_particles)
+def optimize(params, fitness, n_particles=5, inertia=0.3, local_extremum_weight=0.5, global_extremum_weight=0.5):
+    swarm = _initialize(params, fitness, n_particles, inertia=inertia, local_extremum_weight=local_extremum_weight, global_extremum_weight=global_extremum_weight)
     global_min_fitness = swarm.min_particle.fitness
+    global_min_particle_values = dict(swarm.min_particle.values)
     global_min_fitness_early_stopping_rounds = 20
     k = 0
     while True:
         k += 1
-        if k % 10 == 0:
-            print(k)
         for particle in swarm.particles:
             velocity = {}
             for name, value in particle.values.items():
@@ -17,22 +16,27 @@ def optimize(params, fitness, n_particles=5):
                                + swarm.local_extremum_weight * random.uniform(0, 1) * (particle.local_min_state[name] - value) \
                                + swarm.global_extremum_weight * random.uniform(0, 1) * (swarm.min_particle.value(name) - value)
                 velocity[name] = dim_velocity
-                if (particle._id == 1):
-                    print(dim_velocity)
+                if name == 'n_estimators':
+                    print(f'n_estimators.dim_velocity = {dim_velocity}')
+                # if particle._id == 1:
+                #     print(dim_velocity)
             particle.move(velocity)
+            print(f'*[{k}]particle.values={particle.values}')
         swarm.fitness()
         if swarm.min_particle.fitness < global_min_fitness:
             global_min_fitness = swarm.min_particle.fitness
-            global_min_fitness_early_stopping_rounds = 20
+            global_min_particle_values = dict(swarm.min_particle.values)
+            print(f'======[{k}]global_min_fitness={global_min_fitness}')
+            global_min_fitness_early_stopping_rounds = 30
         elif global_min_fitness_early_stopping_rounds == 0:
             break
         else:
             global_min_fitness_early_stopping_rounds -= 1
-    return swarm
+    return global_min_particle_values, global_min_fitness
 
 
-def _initialize(params, fitness, n_particles):
-    swarm = Swarm()
+def _initialize(params, fitness, n_particles, inertia=0.3, local_extremum_weight=0.5, global_extremum_weight=0.5):
+    swarm = Swarm(inertia, local_extremum_weight, global_extremum_weight)
     for n in range(n_particles):
         particle = Particle(n, fitness)
         for name, type, min, max in params:
@@ -45,12 +49,12 @@ def _initialize(params, fitness, n_particles):
 
 
 class Swarm:
-    def __init__(self):
+    def __init__(self, inertia=0.3, local_extremum_weight=0.5, global_extremum_weight=0.5):
         self._particles = []
         self._global_min_fitness = 2 ** 32
-        self._inertia = 0.3
-        self._local_extremum_weight = 1
-        self._global_extremum_weight = 3
+        self._inertia = inertia
+        self._local_extremum_weight = local_extremum_weight
+        self._global_extremum_weight = global_extremum_weight
         self._global_min_particle = None
 
     def add_particle(self, particle):
@@ -113,14 +117,22 @@ class Particle:
 
     def move(self, velocity):
         for name, dim_velocity in velocity.items():
-            self.values[name] = self.values[name] + dim_velocity
+            new_value = self.values[name] + dim_velocity
+            corrected_new_value = new_value if self._sources[name][0] == float else int(new_value)
+            corrected_new_value = max(self._sources[name][1], corrected_new_value)
+            corrected_new_value = min(self._sources[name][2], corrected_new_value)
+            self.values[name] = corrected_new_value
+            # if dim_velocity < corrected_new_value * 0.01:
+            #     velocity[name] = corrected_new_value * 0.1
+            # if abs(corrected_new_value - new_value) < 0.0001:
+            #     velocity[name] = -velocity[name]
         self._last_velocity = velocity
         self._changed = True
 
     @property
     def fitness(self):
         if self._changed:
-            self._fitness_value = self._fitness(self._values)
+            self._fitness_value = self._fitness(dict(self._values))
             self._changed = False
         if self._fitness_value < self._local_min_fitness:
             self._local_min_fitness = self._fitness_value
@@ -155,4 +167,4 @@ class Particle:
 
 if __name__ == '__main__':
     random.seed(42)
-    print(optimize([("a", int, 10, 20)], lambda x: x['a'] ** 2))
+    print(optimize([("a", int, -10, 20)], lambda x: x['a'] ** 2))
