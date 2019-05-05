@@ -75,6 +75,9 @@ def _request_stock_prices(stock_name, datefrom, dateto, page=None, verbose=False
         print(response.status_code)
         print(response.content)
     response = response.json()
+    if 'error' in response:
+        print(response['error'])
+        print(response['message'])
     result = response["stock_prices"]
     for entry in result:
         entry['date'] = dtm.datetime.strptime(entry["date"], "%Y-%m-%d")
@@ -131,15 +134,16 @@ def _request_stock_technicals(stock_name, technical_name, datefrom, dateto, page
     params = {**params, **kwargs}
     if page is not None:
         params["next_page"] = page
-    response = requests.request("get",
-                                "https://api-v2.intrinio.com/securities/{}/prices/technicals/{}".format(stock_name,
-                                                                                                        technical_name),
+    response = requests.request("get", "https://api-v2.intrinio.com/securities/{}/prices/technicals/{}".format(stock_name, technical_name),
                                 params=params)
     if verbose and not response.ok:
         print("https://api-v2.intrinio.com/securities/{}/prices/technicals/{}".format(stock_name, technical_name))
         print(response.status_code)
         print(response.content)
     response = response.json()
+    if 'error' in response:
+        print(response['error'])
+        print(response['message'])
     result = response['technicals']
     for entry in result:
         entry_date = entry["date_time"].split('T')[0]
@@ -183,6 +187,10 @@ def _request_market_prices(stock_name, datefrom, dateto, page=None, verbose=Fals
         print(response.status_code)
         print(response.content)
     response = response.json()
+    if 'error' in response:
+        print(f'stock_name={stock_name}, datefrom={datefrom}, dateto={dateto}, page={page}')
+        print(response['error'])
+        print(response['message'])
     result = response["historical_data"]
     for entry in result:
         entry['date'] = dtm.datetime.strptime(entry["date"], "%Y-%m-%d")
@@ -239,6 +247,10 @@ def _request_stock_fundamentals_report(stock_name, year, page=None, verbose=Fals
         print(response.status_code)
         print(response.content)
     response = response.json()
+    if 'error' in response:
+        print(f'stock_name={stock_name}, year={year}, page={page}')
+        print(response['error'])
+        print(response['message'])
     result = response["fundamentals"]
     for entry in result:
         entry['start_date'] = dtm.datetime.strptime(entry["start_date"], "%Y-%m-%d") if entry[
@@ -289,6 +301,10 @@ def _request_stock_financial_fundamentals(stock_name, fundamental, year, quarter
         print(response.status_code)
         print(response.content)
     response = response.json()
+    if 'error' in response:
+        print(f'stock_name={stock_name}, fundamental={fundamental}, year={year}, quarter={quarter}, page={page}')
+        print(response['error'])
+        print(response['message'])
     if "standardized_financials" not in response:
         return None
     result = response["standardized_financials"]
@@ -303,4 +319,7 @@ def _request_stock_financial_fundamentals(stock_name, fundamental, year, quarter
 
 if __name__ == '__main__':
     log.basicConfig(format='%(asctime)s - %(message)s', level=log.INFO)
-    print(get_stocks_data(['AAPL', 'CSCO'], dtm.datetime(2017, 1, 1), dtm.datetime(2019, 1, 1)))
+    stock_names = ['MMM', 'AXP', 'AAPL', 'BA', 'CAT', 'CVX', 'CSCO', 'KO', 'XOM', 'GS',
+                   'HD', 'IBM', 'INTC', 'JNJ', 'JPM', 'MCD', 'MRK', 'MSFT', 'NKE', 'PFE', 'PG',
+                   'TRV', 'UNH', 'UTX', 'VZ', 'V', 'WMT', 'DIS']
+    print(get_stocks_data(['MCD'], dtm.datetime(2019, 1, 1), dtm.datetime(2019, 3, 14)))
