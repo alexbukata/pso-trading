@@ -1,6 +1,3 @@
-import pandas as pd
-
-
 def simulate_allin_hold(decision_func, stocks, initial_cash=500_000, multipl=1):
     cash = initial_cash
     capacity = {}
@@ -27,27 +24,33 @@ def simulate_allin_hold(decision_func, stocks, initial_cash=500_000, multipl=1):
 
 def simulate_trading(decision_func, stocks, initial_cash=500_000, multipl=1, interest_percent=0.3):
     cash = initial_cash
-    capacity = multipl
+    min_cash = cash
+    max_cash = cash
     for index, row in stocks.iterrows():
         decision = decision_func(row)
-        difference = row['close'] - row['open']
+        difference = multipl * (row['close'] - row['open'])
         if decision == 'buy':
             if cash > multipl * row['open']:
-                interest = multipl * row['open'] * (interest_percent / 100.0)
-                cash = cash - multipl * row['open'] - interest
-                cash = cash + multipl * row['close']
                 open = row['open']
+                interest = multipl * row['open'] * (interest_percent / 100.0)
+                cash += multipl * (row['close'] - row['open']) - interest
                 print(f'buy: open: {open}, cash={cash}, diff={difference}, interest={interest}')
         elif decision == 'sell':
-            if capacity > 0:
-                cash = cash + capacity * row['open']
-                cash = cash - capacity * row['close']
-                open = row['open']
-                print(f'sell: open: {open}, cash={cash}, diff={difference}')
-    print(cash)
+            open = row['open']
+            interest = multipl * row['close'] * (interest_percent / 100.0)
+            cash += multipl * (row['open'] - row['close']) - interest
+            print(f'sell: open: {open}, cash={cash},  diff={difference}, interest={interest}')
+        if cash > max_cash:
+            max_cash = cash
+        if cash < min_cash:
+            min_cash = cash
+        if cash < 0:
+            print("bankrot!")
+            break
+    return cash, min_cash, max_cash
 
 
 if __name__ == '__main__':
     stocks = pd.read_csv('..\\stocks.csv')
     stocks['date'] = pd.to_datetime(stocks['date'], format="%Y-%m-%d")
-    simulate_trading(lambda x: 'buy', stocks)
+    simulate_trading(lambda x: 'sell', stocks, initial_cash=300, multipl=200)

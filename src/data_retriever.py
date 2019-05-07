@@ -322,4 +322,10 @@ if __name__ == '__main__':
     stock_names = ['MMM', 'AXP', 'AAPL', 'BA', 'CAT', 'CVX', 'CSCO', 'KO', 'XOM', 'GS',
                    'HD', 'IBM', 'INTC', 'JNJ', 'JPM', 'MCD', 'MRK', 'MSFT', 'NKE', 'PFE', 'PG',
                    'TRV', 'UNH', 'UTX', 'VZ', 'V', 'WMT', 'DIS']
-    print(get_stocks_data(['MCD'], dtm.datetime(2019, 1, 1), dtm.datetime(2019, 3, 14)))
+    res = pd.DataFrame()
+    for stock_name in stock_names:
+        curr_df = _request_stock_prices_as_pd(stock_name, dtm.datetime(2019, 5, 2), dtm.datetime(2019, 5, 5))
+        curr_df = curr_df[['date', 'close', 'stock_name']]
+        res = pd.concat([res, curr_df])
+
+    print(res.reset_index(drop=True))
