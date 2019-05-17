@@ -97,11 +97,14 @@ def _request_stock_technicals_as_pd(stock_name, datefrom, dateto):
                   ('rsi', {'period': 7}), ('rsi', {'period': 14}), ('rsi', {'period': 28}),
                   ('obv', {}),
                   ('adi', {}),
-                  ('adx', {'short_period': 3, 'long_period': 7}), ('adx', {'short_period': 7, 'long_period': 14}),
-                  ('adx', {'short_period': 7, 'long_period': 28}),
+                  ('adx', {'short_period': 3, 'long_period': 7}), ('adx', {'short_period': 7, 'long_period': 14}), ('adx', {'short_period': 7, 'long_period': 28}),
                   ('bb', {}),
-                  ('kc', {'period': 7}), ('kc', {'period': 14}),
-                  ('kc', {'period': 28}), ]
+                  ('kc', {'period': 7}), ('kc', {'period': 14}), ('kc', {'period': 28}),
+                  ('mfi', {'period': 7}), ('mfi', {'period': 14}), ('mfi', {'period': 28}),
+                  ('tsi', {'low_period': 3, 'high_period': 7}), ('adx', {'low_period': 7, 'high_period': 14}), ('adx', {'low_period': 7, 'high_period': 28}),
+                  ('vpt', {}),
+                  ('mi', {'ema_period': 3, 'sum_period': 7}), ('adx', {'ema_period': 7, 'sum_period': 14}), ('adx', {'ema_period': 9, 'sum_period': 25}),
+                  ]
     technicals_df = None
     for technical_name, kwargs in technicals:
         log.info((technical_name, kwargs))
@@ -319,13 +322,4 @@ def _request_stock_financial_fundamentals(stock_name, fundamental, year, quarter
 
 if __name__ == '__main__':
     log.basicConfig(format='%(asctime)s - %(message)s', level=log.INFO)
-    stock_names = ['MMM', 'AXP', 'AAPL', 'BA', 'CAT', 'CVX', 'CSCO', 'KO', 'XOM', 'GS',
-                   'HD', 'IBM', 'INTC', 'JNJ', 'JPM', 'MCD', 'MRK', 'MSFT', 'NKE', 'PFE', 'PG',
-                   'TRV', 'UNH', 'UTX', 'VZ', 'V', 'WMT', 'DIS']
-    res = pd.DataFrame()
-    for stock_name in stock_names:
-        curr_df = _request_stock_prices_as_pd(stock_name, dtm.datetime(2019, 5, 2), dtm.datetime(2019, 5, 5))
-        curr_df = curr_df[['date', 'close', 'stock_name']]
-        res = pd.concat([res, curr_df])
-
     print(res.reset_index(drop=True))

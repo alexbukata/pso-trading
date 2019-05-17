@@ -7,6 +7,7 @@ def optimize(params, fitness, n_particles=5, inertia=0.3, local_extremum_weight=
     global_min_particle_values = dict(swarm.min_particle.values)
     global_min_fitness_early_stopping_rounds = 20
     k = 0
+    print(f'======[{k}]global_min_fitness={global_min_fitness}')
     while True:
         k += 1
         for particle in swarm.particles:
@@ -16,8 +17,8 @@ def optimize(params, fitness, n_particles=5, inertia=0.3, local_extremum_weight=
                                + swarm.local_extremum_weight * random.uniform(0, 1) * (particle.local_min_state[name] - value) \
                                + swarm.global_extremum_weight * random.uniform(0, 1) * (swarm.min_particle.value(name) - value)
                 velocity[name] = dim_velocity
-                if name == 'n_estimators':
-                    print(f'n_estimators.dim_velocity = {dim_velocity}')
+                # if name == 'n_estimators':
+                #     print(f'n_estimators.dim_velocity = {dim_velocity}')
                 # if particle._id == 1:
                 #     print(dim_velocity)
             particle.move(velocity)
@@ -27,7 +28,7 @@ def optimize(params, fitness, n_particles=5, inertia=0.3, local_extremum_weight=
             global_min_fitness = swarm.min_particle.fitness
             global_min_particle_values = dict(swarm.min_particle.values)
             print(f'======[{k}]global_min_fitness={global_min_fitness}')
-            global_min_fitness_early_stopping_rounds = 30
+            global_min_fitness_early_stopping_rounds = 15
         elif global_min_fitness_early_stopping_rounds == 0:
             break
         else:
