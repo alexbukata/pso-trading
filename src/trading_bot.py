@@ -50,6 +50,37 @@ def simulate_trading(decision_func, stocks, initial_cash=500_000, multipl=1, int
     return cash, min_cash, max_cash
 
 
+def simulate_trading_stat(decision_func, stocks, initial_cash=500_000, multipl=1, interest_percent=0.3):
+    cashes, diffs = [], []
+    cash = initial_cash
+    min_cash = cash
+    max_cash = cash
+    for index, row in stocks.iterrows():
+        decision = decision_func(row)
+        difference = multipl * (row['close'] - row['open'])
+        if decision == 'buy':
+            if cash > multipl * row['open']:
+                open = row['open']
+                interest = multipl * row['open'] * (interest_percent / 100.0)
+                cash += multipl * (row['close'] - row['open']) - 1
+                print(f'buy: open: {open}, cash={cash}, diff={difference}, interest={interest}')
+        elif decision == 'sell':
+            open = row['open']
+            interest = multipl * row['close'] * (interest_percent / 100.0)
+            cash += multipl * (row['open'] - row['close']) - 1
+            print(f'sell: open: {open}, cash={cash},  diff={difference}, interest={interest}')
+        if cash > max_cash:
+            max_cash = cash
+        if cash < min_cash:
+            min_cash = cash
+        if cash < 0:
+            print("bankrot!")
+            break
+        cashes += [cash]
+        diffs += [difference]
+    return cash, min_cash, max_cash, cashes, diffs
+
+
 if __name__ == '__main__':
     stocks = pd.read_csv('..\\stocks.csv')
     stocks['date'] = pd.to_datetime(stocks['date'], format="%Y-%m-%d")

@@ -1,5 +1,7 @@
 import random
 
+MAX_INT = 2 ** 32
+
 
 def optimize(params, fitness, n_particles=5, inertia=0.3, local_extremum_weight=0.5, global_extremum_weight=0.5):
     swarm = _initialize(params, fitness, n_particles, inertia=inertia, local_extremum_weight=local_extremum_weight, global_extremum_weight=global_extremum_weight)
@@ -39,20 +41,31 @@ def optimize(params, fitness, n_particles=5, inertia=0.3, local_extremum_weight=
 def _initialize(params, fitness, n_particles, inertia=0.3, local_extremum_weight=0.5, global_extremum_weight=0.5):
     swarm = Swarm(inertia, local_extremum_weight, global_extremum_weight)
     for n in range(n_particles):
+        particle = generate_particle(n, fitness, params)
+        swarm.add_particle(particle)
+    return swarm
+
+
+def generate_particle(n, fitness, params):
+    min_fitness = MAX_INT
+    best_particle = None
+    for i in range(5):
         particle = Particle(n, fitness)
         for name, type, min, max in params:
             if type is int:
                 particle.create(name, random.randint(min, max), (type, min, max))
             elif type is float:
                 particle.create(name, random.uniform(min, max), (type, min, max))
-        swarm.add_particle(particle)
-    return swarm
+        if particle.fitness < min_fitness:
+            best_particle = particle
+            min_fitness = particle.fitness
+    return best_particle
 
 
 class Swarm:
     def __init__(self, inertia=0.3, local_extremum_weight=0.5, global_extremum_weight=0.5):
         self._particles = []
-        self._global_min_fitness = 2 ** 32
+        self._global_min_fitness = MAX_INT
         self._inertia = inertia
         self._local_extremum_weight = local_extremum_weight
         self._global_extremum_weight = global_extremum_weight

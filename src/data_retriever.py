@@ -17,7 +17,8 @@ def get_stocks_data(stock_names, datefrom, dateto):
         stock_name = stock_candidate_names.pop()
         try:
             current_stocks = _get_stock_data(stock_name, datefrom, dateto)
-            result = pd.concat([result, current_stocks])
+            result = pd.concat([result, current_stocks], sort=False)
+            print(list(result.columns))
         except Exception as e:
             print("retry on {}".format(stock_name))
             print(e)
@@ -101,9 +102,9 @@ def _request_stock_technicals_as_pd(stock_name, datefrom, dateto):
                   ('bb', {}),
                   ('kc', {'period': 7}), ('kc', {'period': 14}), ('kc', {'period': 28}),
                   ('mfi', {'period': 7}), ('mfi', {'period': 14}), ('mfi', {'period': 28}),
-                  ('tsi', {'low_period': 3, 'high_period': 7}), ('adx', {'low_period': 7, 'high_period': 14}), ('adx', {'low_period': 7, 'high_period': 28}),
+                  ('tsi', {'low_period': 3, 'high_period': 7}), ('tsi', {'low_period': 7, 'high_period': 14}), ('tsi', {'low_period': 7, 'high_period': 28}),
                   ('vpt', {}),
-                  ('mi', {'ema_period': 3, 'sum_period': 7}), ('adx', {'ema_period': 7, 'sum_period': 14}), ('adx', {'ema_period': 9, 'sum_period': 25}),
+                  ('mi', {'ema_period': 3, 'sum_period': 7}), ('mi', {'ema_period': 7, 'sum_period': 14}), ('mi', {'ema_period': 9, 'sum_period': 25}),
                   ]
     technicals_df = None
     for technical_name, kwargs in technicals:
@@ -235,6 +236,20 @@ def _request_stock_fundamentals_report_as_pd(stock_name, fiscal_years, periods):
     return calculations_reports
 
 
+def simulate_trading(decision_func, trading_days, cash):
+    for trading_day in trading_days:
+        decision = decision_func(trading_day)
+        if decision == 'buy':
+            if cash > 10 * trading_day['open']:
+                cash += 10 * (trading_day['close'] - trading_day['open'])
+        elif decision == 'sell':
+            cash += 10 * (trading_day['open'] - trading_day['close'])
+        if cash < 0:
+            print("bankrupt!")
+            return -1
+    return cash
+
+
 def _request_stock_fundamentals_report(stock_name, year, page=None, verbose=False):
     params = {
         "api_key": _current_key,
@@ -322,4 +337,11 @@ def _request_stock_financial_fundamentals(stock_name, fundamental, year, quarter
 
 if __name__ == '__main__':
     log.basicConfig(format='%(asctime)s - %(message)s', level=log.INFO)
-    print(res.reset_index(drop=True))
+    stock_names = ['MMM', 'AXP', 'AAPL', 'BA', 'CAT', 'CVX', 'CSCO', 'KO', 'XOM', 'GS',
+                   'HD', 'IBM', 'INTC', 'JNJ', 'JPM', 'MCD', 'MRK', 'MSFT', 'NKE', 'PFE', 'PG',
+                   'TRV', 'UNH', 'UTX', 'VZ', 'V', 'WMT', 'DIS']
+    # stock_names = ['VZ', 'V', 'WMT', 'DIS']
+    datefrom = dtm.datetime(2010, 1, 1)
+    dateto = dtm.datetime(2019, 5, 1)
+    stocks = get_stocks_data(stock_names, datefrom, dateto)
+    stocks.to_csv("stocks_dow30_full_fixed.csv", index_label='id', columns=stocks.columns)
